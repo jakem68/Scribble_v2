@@ -14,7 +14,18 @@ public class startDialog extends JDialog {
     private JTextArea textArea1;
     private JList list1;
     private JButton testScribbleButton;
+    private JSlider tresholdSlider;
+    private JLabel darkness;
+    private JSlider grayResSlider;
+    private JLabel grayResolution;
+    private JSlider lineWeightSlider;
+    private JLabel lineWeight;
+    private JButton defaultButton;
+    private JButton saveSettingsButton;
+    private JButton setNewDefaultButton;
+    private JButton scribbleButton;
     private JFileChooser fc;
+    public static File defaultScribbleSettings = new File("/home/jan/Pictures/defaultScribbleSettings.set");
 
 //TODO: Remove fileList if no further use then to print.
     private static ArrayList<File> fileList = new ArrayList<File>();

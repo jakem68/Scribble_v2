@@ -37,6 +37,8 @@ import org.opencv.imgproc.Imgproc;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.image.BufferedImage;
+import java.io.*;
+//import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
@@ -63,13 +65,15 @@ public class MakeScribble {
      * This tells the algorithm when to stop: when the average darkness in the
      * image is below this threshold.
      */
-    private static final double THRESHOLD = 0.2; // 0.2
+    private static double THRESHOLD; // 0.2
+    private static double THRESHOLD_ORIGINAL = 0.2; // 0.2
 
     /**
      * Since we're doing all the image calculations in fixed-point, this is a
      * scaling factor we are going to use.
      */
-    private static final double GRAY_RESOLUTION = 400; // 128;
+    private static double GRAY_RESOLUTION; // 128;
+    private static double GRAY_RESOLUTION_ORIGINAL = 128; // 128;
 
     /**
      * This is the ratio between the line width to the overall output image
@@ -86,7 +90,8 @@ public class MakeScribble {
     /**
      * By how much to down-sample the image.
      */
-    private static final double SCALE = 0.2; // 0.2;
+    private static double SCALE; // 0.2;
+    private static double SCALE_ORIGINAL = 0.2; // 0.2;
 
     /**
      * How many candidates to consider for each line segment.
@@ -189,7 +194,71 @@ public class MakeScribble {
 		 * // server.close(); } }
 		 * //////////////////////////////////////////////////////////
 		 */
-    private static void run(String filename) {
+    private static void setScribblerSettings(String ifilename) throws IOException {
+        //check whether there is a settings file with the name filename+".set" in /home/jan/Pictures
+        File sfile = new File(ifilename + ".set");
+        boolean sfileExists = sfile.exists();
+        if (sfileExists) {
+            //if yes use the values in this file
+            //HERE
+            // https://www.reddit.com/r/javaexamples/comments/344kch/reading_and_parsing_data_from_a_file/
+            parseScribbleSettings(sfile);
+        }
+        else {
+            //if no use the values in defaultScribbleSettings.set
+            boolean defaultFileExists = startDialog.defaultScribbleSettings.exists();
+            if (defaultFileExists) {
+                parseScribbleSettings(startDialog.defaultScribbleSettings);
+            }
+            //if no file exist use the original default values
+            else {
+                THRESHOLD = THRESHOLD_ORIGINAL;
+                GRAY_RESOLUTION = GRAY_RESOLUTION_ORIGINAL;
+                SCALE = SCALE_ORIGINAL;
+            }
+        }
+    }
+
+    //parse incoming file and set variables TRESHOLD GRAY_RESOLUTION SCALE
+    public static void parseScribbleSettings(File sfile) throws IOException {
+        // create a Buffered Reader object instance with a FileReader
+        BufferedReader br = new BufferedReader(new FileReader(sfile));
+
+        // read the first line from the text file
+        String fileRead = br.readLine();
+
+        int i = 2;
+        int j = 3;
+        //String[] lineParsed = new String[i];
+        String[][] fileParsed = new String[j][i];
+        j = 0;
+        // loop until all lines are read
+        while (fileRead != null)
+        {
+            // use string.split to load a string array with the values from each line of
+            // the file, using a comma as the delimiter
+            String[] lineParsed = fileRead.split("=");
+            fileParsed[j]=lineParsed;
+            j+=1;
+
+            // read next line before looping
+            // if end of file reached
+            fileRead = br.readLine();
+        }
+        // close file stream
+        br.close();
+
+        // set Variables
+        THRESHOLD = Double.parseDouble(fileParsed[0][1]);
+        System.out.println(THRESHOLD);
+        GRAY_RESOLUTION = Double.parseDouble(fileParsed[1][1]);
+        SCALE = Double.parseDouble(fileParsed[2][1]);
+
+    }
+
+    private static void run(String filename) throws IOException {
+
+        setScribblerSettings(filename);
 
         Mat original = Imgcodecs.imread(filename);
 //        double finalScale = 1;
