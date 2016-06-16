@@ -63,6 +63,61 @@ public class startDialog extends JDialog {
             public void actionPerformed(ActionEvent e) {onTestScribble();}
         });
 
+        scribbleButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+            }
+        });
+
+        defaultButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+            }
+        });
+
+        setNewDefaultButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                private double tempTreshold;
+                private double tempGray_Resolution;
+                private double tempScale;
+                private double sliderTreshold;
+                private double sliderGray_Resolution;
+                private double sliderScale;
+
+                private double maxTreshold=0.5;
+                private double minTreshold=0.1;
+                private double maxGray_Resolution=500;
+                private double minGray_Resolution=50;
+                private double maxScale=0.4;
+                private double minScale=0.1;
+
+                //read values from sliders
+
+                sliderTreshold = (double) tresholdSlider.getValue();
+                sliderGray_Resolution = (double) grayResSlider.getValue();
+                sliderScale = (double) lineWeightSlider.getValue();
+
+                //recalculate to desired min and max values
+                tempTreshold = (sliderTreshold/100*(maxTreshold-minTreshold))+minTreshold;
+                tempGray_Resolution = (sliderGray_Resolution/100*(maxGray_Resolution-minGray_Resolution))+minGray_Resolution;
+                tempScale= (sliderScale/100*(maxScale-minScale))+minScale;
+
+                // TODO: and write to defaultScribbleSettings.set
+
+            }
+        });
+
+        saveSettingsButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+
+            }
+        });
+
+
 
 // call onCancel() when cross is clicked
         setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
@@ -95,6 +150,16 @@ public class startDialog extends JDialog {
         //select the desired file name for testing
         String scribbleArg[] = new String[1];
         scribbleArg[0] = ((String) list1.getSelectedValue());
+
+        //TODO: pass argument to set robot = false to MakeScribble
+
+        //read the values from the sliders
+
+        //recalculate the values relative to allowed min and max values
+
+        //pass the values as arguments to MakeScribble
+
+
         try {
             MakeScribble.main(scribbleArg);
         } catch (IOException e) {
