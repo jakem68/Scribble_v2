@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.*;
 import java.util.*;
 import java.util.List;
 
@@ -65,15 +66,15 @@ public class MakeScribble {
      * This tells the algorithm when to stop: when the average darkness in the
      * image is below this threshold.
      */
-    private static double THRESHOLD; // 0.2
-    private static double THRESHOLD_ORIGINAL = 0.2; // 0.2
+    public static double THRESHOLD; // 0.2
+    public static double THRESHOLD_ORIGINAL = 0.2; // 0.2
 
     /**
      * Since we're doing all the image calculations in fixed-point, this is a
      * scaling factor we are going to use.
      */
-    private static double GRAY_RESOLUTION; // 128;
-    private static double GRAY_RESOLUTION_ORIGINAL = 128; // 128;
+    public static double GRAY_RESOLUTION; // 128;
+    public static double GRAY_RESOLUTION_ORIGINAL = 128; // 128;
 
     /**
      * This is the ratio between the line width to the overall output image
@@ -90,8 +91,8 @@ public class MakeScribble {
     /**
      * By how much to down-sample the image.
      */
-    private static double SCALE; // 0.2;
-    private static double SCALE_ORIGINAL = 0.2; // 0.2;
+    public static double SCALE; // 0.2;
+    public static double SCALE_ORIGINAL = 0.2; // 0.2;
 
     /**
      * How many candidates to consider for each line segment.
@@ -102,7 +103,7 @@ public class MakeScribble {
 
     private static final String UR10_IP = "192.168.2.100";
     private static final int PORT = 30000;
-    private static boolean robot = false;
+    public static boolean ROBOT = false;
 
     private static boolean newLine = true;
     private static final double approachHeight = 15; // mm
@@ -116,11 +117,11 @@ public class MakeScribble {
     private static final int paperWidth = 420; // mm
     private static final int paperHeight = 297; // mm
     private static final int paperWhiteband = 30; // mm
-//    private static final int robotUnitsRatio = 1000; // output to robot is in 'mm'! if robot expects input in 'm' robotUnitsRatio = 1000
+//    private static final int robotUnitsRatio = 1000; // output to ROBOT is in 'mm'! if ROBOT expects input in 'm' robotUnitsRatio = 1000
     private static double[] poseTrans = new double[6];
     private static double[] totalDisplacement = new double[poseTrans.length];
     private static double[] poseDrawingOrigin = new double[6];
-    private static double outputMultiplicator = 0.0017;
+    private static double outputMultiplicator = 0.0017; //measured and calculated based on real drawed picture
 
     // initializing the count of drawingposition
     // TODO: verify whether multiple arguments don't reinitialize!!!!!!!!!
@@ -147,118 +148,8 @@ public class MakeScribble {
         // run(arg);
     }
 
-    //////////////////////////////////////////////////////////
-
-    // public static NetworkServer nwServer = new NetworkServer();
-
-    //////////////////////////////////////////////////////////
-
-	/*
-     * public static void sendMessage(String message) throws IOException {
-	 *
-	 * // TODO: check whether is works without starting a new thread each //
-	 * time???? // new Thread(new Server()).start(); DataOutputStream out = new
-	 * DataOutputStream(pcsocket.getOutputStream()); out.writeUTF(message); //
-	 * try { // Thread.sleep(500); // } catch (Exception e) { // }
-	 *
-	 * out.flush(); out.close(); }
-	 *
-	 * static class Server { private static final String UR10_IP =
-	 * "192.168.2.100"; private static final int PORT = 30000;
-	 *
-	 *//**
-     * Monitor a port for connections. Each time one is established, pass
-     * resulting Socket to handleConnection.
-     */
-
-	/*
-     *
-	 * public void listen() { try { ServerSocket listener = new
-	 * ServerSocket(PORT); Socket server = listener.accept();
-	 * handleConnection(server); listener.close(); } catch (IOException ioe) {
-	 * System.out.println("IOException: " + ioe); ioe.printStackTrace(); } }
-	 *
-	 */
-
-    /**
-     * This is the method that provides the behavior to the server, since it
-     * determines what is done with the resulting socket. This generic
-     * version simply reports the host that made the connection, shows the
-     * first line the client sent, and sends a single line in response.
-     *//*
-         *
-		 * protected void handleConnection(Socket server) throws IOException {
-		 * PrintWriter out = new PrintWriter(server.getOutputStream(), true);
-		 * System.out.println("Generic Network Server: got connection from " +
-		 * server.getInetAddress().getHostName() + "\n"); out.println("(0, 0)");
-		 * // server.close(); } }
-		 * //////////////////////////////////////////////////////////
-		 */
-    private static void setScribblerSettings(String ifilename) throws IOException {
-        //check whether there is a settings file with the name filename+".set" in /home/jan/Pictures
-        File sfile = new File(ifilename + ".set");
-        boolean sfileExists = sfile.exists();
-        if (sfileExists) {
-            //if yes use the values in this file
-            //HERE
-            // https://www.reddit.com/r/javaexamples/comments/344kch/reading_and_parsing_data_from_a_file/
-            parseScribbleSettings(sfile);
-        }
-        else {
-            //if no use the values in defaultScribbleSettings.set
-            boolean defaultFileExists = startDialog.defaultScribbleSettings.exists();
-            if (defaultFileExists) {
-                parseScribbleSettings(startDialog.defaultScribbleSettings);
-            }
-            //if no file exist use the original default values
-            else {
-                THRESHOLD = THRESHOLD_ORIGINAL;
-                GRAY_RESOLUTION = GRAY_RESOLUTION_ORIGINAL;
-                SCALE = SCALE_ORIGINAL;
-            }
-        }
-    }
-
-    //parse incoming file and set variables TRESHOLD GRAY_RESOLUTION SCALE
-    public static void parseScribbleSettings(File sfile) throws IOException {
-        // create a Buffered Reader object instance with a FileReader
-        BufferedReader br = new BufferedReader(new FileReader(sfile));
-
-        // read the first line from the text file
-        String fileRead = br.readLine();
-
-        int i = 2;
-        int j = 3;
-        //String[] lineParsed = new String[i];
-        String[][] fileParsed = new String[j][i];
-        j = 0;
-        // loop until all lines are read
-        while (fileRead != null)
-        {
-            // use string.split to load a string array with the values from each line of
-            // the file, using a comma as the delimiter
-            String[] lineParsed = fileRead.split("=");
-            fileParsed[j]=lineParsed;
-            j+=1;
-
-            // read next line before looping
-            // if end of file reached
-            fileRead = br.readLine();
-        }
-        // close file stream
-        br.close();
-
-        // set Variables
-        THRESHOLD = Double.parseDouble(fileParsed[0][1]);
-        System.out.println(THRESHOLD);
-        GRAY_RESOLUTION = Double.parseDouble(fileParsed[1][1]);
-        SCALE = Double.parseDouble(fileParsed[2][1]);
-
-    }
 
     private static void run(String filename) throws IOException {
-
-        setScribblerSettings(filename);
 
         Mat original = Imgcodecs.imread(filename);
 //        double finalScale = 1;
@@ -309,8 +200,8 @@ public class MakeScribble {
         int lines = 0;
         component.hideImage();
 
-        // start new server only if robot has been selected AND move to startpoint of current drawing.
-        if (robot) {
+        // start new server only if ROBOT has been selected AND move to startpoint of current drawing.
+        if (ROBOT) {
             newLine = true;
             try {
 //            finalScale = calculateRobotScale(in);
@@ -348,7 +239,7 @@ public class MakeScribble {
             currentStartPointX = refToStartX + paperWhiteband + ((currentColumn - 1) * deltaColumn);
             currentStartPointY = refToStartY + paperWhiteband + ((currentRow - 1) * deltaRow);
 
-            // move robot from reference approach point to current starting position
+            // move ROBOT from reference approach point to current starting position
 //            // move 10 up
 //            poseTrans[0] = 0; // x value
 //            poseTrans[1] = 0; // y value
@@ -394,7 +285,7 @@ public class MakeScribble {
 			 * ksj_ingevoegd
 			 */
 
-            if (robot) {
+            if (ROBOT) {
                 //
                 //when starting a new line make first movement in air
                     poseTrans[0] = ((scaledLine[1].x) * -(calculatePaperScale(in)))-currentStartPointX;// * finalScale; // x value
@@ -419,8 +310,8 @@ public class MakeScribble {
             }
         }
 
-        // move robot to reference approach point
-        if (robot) {
+        // move ROBOT to reference approach point
+        if (ROBOT) {
             // move away from paper
 //            poseTrans[0] = 0; // x value
 //            poseTrans[1] = 0; // y value
@@ -444,8 +335,8 @@ public class MakeScribble {
 //			sendMessage(poseTrans, out);
 
 
-        // Close socket with robot only if robot has been selected
-        if (robot) {
+        // Close socket with ROBOT only if ROBOT has been selected
+        if (ROBOT) {
             try {
                 out.close();
                 server.close();
