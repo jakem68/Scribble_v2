@@ -47,6 +47,8 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.List;
 
+import static be.sirris.startDialog.*;
+
 /*
  * This class is no longer supported in opencv-3.0.0 for java
  * see : http://stackoverflow.com/questions/25059576/highgui-is-missing-from-opencv-3-0-0-jar
@@ -140,16 +142,24 @@ public class MakeScribble {
         System.loadLibrary("opencv_java300");
     }
 
-    public static void main(String[] args) throws IOException, InterruptedException {
-        for (String arg : args) {
-            run(arg);
-        }
-        // String arg = "/home/jan/eclipseworkspace/Picture2.jpg";
-        // run(arg);
-    }
+//    public static void main(String[] args) throws IOException, InterruptedException {
+//        for (String arg : args) {
+//            run(arg);
+//        }
+//        // String arg = "/home/jan/eclipseworkspace/Picture2.jpg";
+//        // run(arg);
+//    }
 
 
-    private static void run(String filename) throws IOException {
+
+
+//    private static void run(String filename) throws IOException {
+//added from here to
+        public static void doRun(String[] args) throws IOException {
+            String filename = args[0];
+//here
+
+
 
         Mat original = Imgcodecs.imread(filename);
 //        double finalScale = 1;
@@ -176,12 +186,13 @@ public class MakeScribble {
         // We scale such that for each line we can subtract GRAY_RESOLUTION and it will correspond to darkening by SCALE.
         Core.multiply(in, new Scalar(GRAY_RESOLUTION / SCALE / 255), in);
 
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {
-        }
-        final JFrame frame = new JFrame("Scribble: " + filename);
-        frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+//        try {
+//            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+//        } catch (Exception e) {
+//        }
+
+        final JDialog frame = new JDialog();
+        frame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
 
         Container contentPane = frame.getContentPane();
         contentPane.setLayout(new BoxLayout(contentPane, BoxLayout.X_AXIS));
