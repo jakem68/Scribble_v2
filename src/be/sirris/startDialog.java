@@ -28,7 +28,7 @@ public class startDialog extends JFrame {
     private JList list1;
     private JButton testScribbleButton;
     private JSlider thresholdSlider;
-    private JLabel darkness;
+    private JLabel threshold;
     private JSlider grayResSlider;
     private JLabel grayResolution;
     private JSlider lineWeightSlider;
@@ -43,7 +43,7 @@ public class startDialog extends JFrame {
 
     double maxThreshold = 0.5;
     double minThreshold = 0.1;
-    double maxGray_Resolution = 500;
+    double maxGray_Resolution = 1000;
     double minGray_Resolution = 50;
     double maxScale = 0.4;
     double minScale = 0.1;
@@ -71,7 +71,7 @@ public class startDialog extends JFrame {
         contentPane.setPreferredSize(new Dimension(600, 400));
 
 // when cross is clicked
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
                 onCancel();
@@ -114,6 +114,8 @@ onScribble();
                 try {
                     onTestScribble();
                 } catch (IOException e1) {
+                    e1.printStackTrace();
+                } catch (InterruptedException e1) {
                     e1.printStackTrace();
                 }
             }
@@ -189,7 +191,9 @@ onScribble();
     private void onCancel() {
 // add your code here if necessary
         System.out.println("TAG: I am here 1");
-        dispose();
+//        dispose();
+        System.exit(0);
+
     }
     private void onSliderChange() {
         createTempSettingsFile();
@@ -197,32 +201,32 @@ onScribble();
     }
 
     private void onScribble() {
-//TODO
-        //read the selected file names in list1 for scribbling and place it in a string array for passing to class MakeScribble
+        //turn of Robot communication
+        MakeScribble.ROBOT = true;
 
-        //for each file in string array
-          // determine the applicable settingsfile
-
-          //parseAndSetScribbleSettings(applicable settingsfile)
-
-          //hand the file to MakeScribble
-
-        //handle next file
-
-
+        MyRunnable myRunnable = new MyRunnable();
+        Thread t = new Thread(myRunnable);
+        t.start();
     }
 
-    SwingWorker worker = new SwingWorker<Void, Void>() {
-        @Override
-        public Void doInBackground() throws IOException {
-            // execute onTestScribble in a new background thread
+    private void onTestScribble() throws IOException, InterruptedException {
+        //turn of Robot communication
+       MakeScribble.ROBOT = false;
+
+        MyRunnable myRunnable = new MyRunnable();
+        Thread t = new Thread(myRunnable);
+        t.start();
+    }
+
+    public class MyRunnable implements Runnable {
+
+        public void run() {
+
+            // code in the other thread, can reference "var" variable
             //create array of strings to pass as argument to MakeScribble with  length 1
             System.out.println("trying to start new worker");
 
             String scribbleArg[] = new String[1];
-
-            //turn of Robot communication
-            MakeScribble.ROBOT = false;
 
             //check whether something has been selected
             if (list1.getSelectedValue() != null) {
@@ -236,7 +240,11 @@ onScribble();
                     scribbleArg[0] = ((String) sel);
 
                     //pass the values as arguments to MakeScribble
-                    determineApplicableSettingsfile_AndParse(scribbleArg[0]);
+                    try {
+                        determineApplicableSettingsfile_AndParse(scribbleArg[0]);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                     try {
 //reduce to 1 main only --> call MakeScribble.run instead of MakeScribble.main
                         MakeScribble.doRun(scribbleArg);
@@ -248,21 +256,11 @@ onScribble();
             } else {
                 JOptionPane.showMessageDialog(null, "There is nothing selected.");
             }
-            return null;
         }
-
-        @Override
-        public void done() {
-            System.out.println("when work is done before returning");
-        }
-    };
-
-    private void onTestScribble() throws IOException {
-
-        worker.execute();
-
-
     }
+
+
+
 
     private void onSelectPicture() throws IOException {
         //check whether specific settingsfile exists
@@ -567,15 +565,20 @@ onScribble();
 
         javax.swing.SwingUtilities.invokeLater(new Runnable(){
             public void run(){
-                startDialog dialog = new startDialog ("Scribble");
-                dialog.setContentPane(new startDialog("Scribble").contentPane);
-                dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-                dialog.pack();
-                dialog.setVisible(true);
+                createGUI();
+//                dialog.dispose();
 //                System.exit(0);
-
+//http://stackoverflow.com/questions/22851542/java-dialog-does-not-dispose
             }
         });
 
+    }
+
+    private static void createGUI() {
+        startDialog dialog = new startDialog ("Scribble");
+        dialog.setContentPane(new startDialog("Scribble").contentPane);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.pack();
+        dialog.setVisible(true);
     }
 }

@@ -36,6 +36,8 @@ import org.opencv.imgproc.Imgproc;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
 import java.io.*;
 //import java.io.File;
@@ -48,6 +50,8 @@ import java.util.*;
 import java.util.List;
 
 import static be.sirris.startDialog.*;
+import static com.sun.deploy.uitoolkit.ToolkitStore.dispose;
+import static com.sun.java.accessibility.util.AWTEventMonitor.addWindowListener;
 
 /*
  * This class is no longer supported in opencv-3.0.0 for java
@@ -192,7 +196,18 @@ public class MakeScribble {
 //        }
 
         final JDialog frame = new JDialog();
-        frame.setDefaultCloseOperation(JFrame.HIDE_ON_CLOSE);
+        frame.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+            addWindowListener(new WindowAdapter() {
+                public void windowClosing(WindowEvent e) {
+
+                    try {
+                        dispose();
+                    } catch (Exception e1) {
+                        e1.printStackTrace();
+                    }
+                }
+            });
+
 
         Container contentPane = frame.getContentPane();
         contentPane.setLayout(new BoxLayout(contentPane, BoxLayout.X_AXIS));
