@@ -39,13 +39,8 @@ import java.awt.*;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.awt.image.BufferedImage;
-import java.io.*;
-//import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.net.ServerSocket;
-import java.net.Socket;
-import java.nio.file.*;
 import java.util.*;
 import java.util.List;
 
@@ -69,104 +64,73 @@ import static com.sun.java.accessibility.util.AWTEventMonitor.addWindowListener;
  */
 public class MakeScribble {
     /**
+     * This is the ratio between the line width to the overall output image
+     * width. It is important, since it tells our algorithm how much darkness a
+     * single line contributes.
+     */
+    private static final double NATIVE_RESOLUTION = 450; //450
+    /**
+     * Set to true for one continuous stroke, false for discontinuous lines.
+     */
+    private static final boolean CONTINUOUS = true;
+    /**
+     * How many candidates to consider for each line segment.
+     */
+    private static final int NUM_CANDIDATES = 1000;
+
+    //page setup information
+    private static final double approachHeight = 15; // mm
+    private static final double referenceHeight = -15; // mm //set preleminary at 0 for security reasons
+    private static final double refToStartX = 69; // A3=40, testframe=69, distance from reference point to first drawing starting point in X
+    private static final double refToStartY = 15; // A3=-10, testframe=15, distance from reference point to first drawing starting point in Y
+    private static final int numberColumns = 3; // nr of drawing columns that can be drawn in 1 cycle
+    private static final int numberRows = 2; // nr of drawing rows that can be drawn in 1 cycle
+    private static final double deltaColumn = 142; // distance between columns
+    private static final double deltaRow = 142; // distance between rows
+    private static final int paperWidth = 89; // A3=297mm, testframe=89mm
+    private static final int paperHeight = 126; // A3=420mm, testframe=126
+    private static final int paperWhiteband = 20; // mm
+    /**
      * This tells the algorithm when to stop: when the average darkness in the
      * image is below this threshold.
      */
     public static double THRESHOLD; // 0.2
     public static double THRESHOLD_ORIGINAL = 0.2; // 0.2
-
     /**
      * Since we're doing all the image calculations in fixed-point, this is a
      * scaling factor we are going to use.
      */
     public static double GRAY_RESOLUTION; // 128;
     public static double GRAY_RESOLUTION_ORIGINAL = 128; // 128;
-
-    /**
-     * This is the ratio between the line width to the overall output image
-     * width. It is important, since it tells our algorithm how much darkness a
-     * single line contributes.
-     */
-    private static final double NATIVE_RESOLUTION = 450; //450
-
-    /**
-     * Set to true for one continuous stroke, false for discontinuous lines.
-     */
-    private static final boolean CONTINUOUS = true;
-
     /**
      * By how much to down-sample the image.
      */
     public static double SCALE; // 0.2;
     public static double SCALE_ORIGINAL = 0.2; // 0.2;
-
-    /**
-     * How many candidates to consider for each line segment.
-     */
-    private static final int NUM_CANDIDATES = 1000;
-
-    private static Random random_ = new Random();
-
-    private static final String UR10_IP = "192.168.2.100";
-    private static final int PORT = 30000;
     public static boolean ROBOT = false;
-
+    private static Random random_ = new Random();
     private static boolean newLine = true;
-    private static final double approachHeight = 15; // mm
-    private static final double referenceHeight = 0; // mm //set preleminary at 0 for security reasons, will probably become 50mm
-    private static final double refToStartX = 30; // distance from reference point to first drawing starting point in X
-    private static final double refToStartY = 30; // distance from reference point to first drawing starting point in Y
-    private static final int numberColumns = 3; // nr of drawing columns that can be drawn in 1 cycle
-    private static final int numberRows = 2; // nr of drawing rows that can be drawn in 1 cycle
-    private static final double deltaColumn = 210; // distance between columns
-    private static final double deltaRow = 160; // distance between rows
-    private static final int paperWidth = 420; // mm
-    private static final int paperHeight = 297; // mm
-    private static final int paperWhiteband = 30; // mm
-//    private static final int robotUnitsRatio = 1000; // output to ROBOT is in 'mm'! if ROBOT expects input in 'm' robotUnitsRatio = 1000
+    //    private static final int robotUnitsRatio = 1000; // output to ROBOT is in 'mm'! if ROBOT expects input in 'm' robotUnitsRatio = 1000
     private static double[] poseTrans = new double[6];
     private static double[] totalDisplacement = new double[poseTrans.length];
     private static double[] poseDrawingOrigin = new double[6];
-    private static double outputMultiplicator = 0.0017; //measured and calculated based on real drawed picture
+    private static double outputMultiplicator = 0.0017*1.3; //measured and calculated based on real drawed picture, corrected after first tests
 
     // initializing the count of drawingposition
-    // TODO: verify whether multiple arguments don't reinitialize!!!!!!!!!
     private static int currentColumn = 0;
     private static int currentRow = 1;
     private static int drawingCounter = 1;
     private static double currentStartPointX;
     private static double currentStartPointY;
 
-
-    private static PrintWriter out = null;
-    private static Socket server = null;
-
     static {
-        // System.loadLibrary("opencv_java246");
         System.loadLibrary("opencv_java300");
     }
 
-//    public static void main(String[] args) throws IOException, InterruptedException {
-//        for (String arg : args) {
-//            run(arg);
-//        }
-//        // String arg = "/home/jan/eclipseworkspace/Picture2.jpg";
-//        // run(arg);
-//    }
-
-
-
-
-//    private static void run(String filename) throws IOException {
-//added from here to
-        public static void doRun(String[] args) throws IOException {
-            String filename = args[0];
-//here
-
-
+    public static void run(String[] args) throws IOException {
+        String filename = args[0];
 
         Mat original = Imgcodecs.imread(filename);
-//        double finalScale = 1;
 
         // Convert to gray-scale.
         Imgproc.cvtColor(original, original, Imgproc.COLOR_BGR2GRAY);
@@ -197,17 +161,16 @@ public class MakeScribble {
 
         final JDialog frame = new JDialog();
         frame.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-            addWindowListener(new WindowAdapter() {
-                public void windowClosing(WindowEvent e) {
+        addWindowListener(new WindowAdapter() {
+            public void windowClosing(WindowEvent e) {
 
-                    try {
-                        dispose();
-                    } catch (Exception e1) {
-                        e1.printStackTrace();
-                    }
+                try {
+                    dispose();
+                } catch (Exception e1) {
+                    e1.printStackTrace();
                 }
-            });
-
+            }
+        });
 
         Container contentPane = frame.getContentPane();
         contentPane.setLayout(new BoxLayout(contentPane, BoxLayout.X_AXIS));
@@ -229,18 +192,6 @@ public class MakeScribble {
         // start new server only if ROBOT has been selected AND move to startpoint of current drawing.
         if (ROBOT) {
             newLine = true;
-            try {
-//            finalScale = calculateRobotScale(in);
-                ServerSocket listener = new ServerSocket(PORT);
-                server = listener.accept();
-                out = new PrintWriter(server.getOutputStream(), true);
-                System.out.println(
-                        "Generic Network Server: got connection from " + server.getInetAddress().getHostName() + "\n");
-                listener.close();
-            } catch (IOException ioe) {
-                System.out.println("IOException: " + ioe);
-                ioe.printStackTrace();
-            }
 
             // calculate current drawing position
             if (drawingCounter > numberColumns) {
@@ -261,36 +212,19 @@ public class MakeScribble {
                 }
                 System.exit(0);
             }
-            drawingCounter+=1;
+            drawingCounter += 1;
             currentStartPointX = refToStartX + paperWhiteband + ((currentColumn - 1) * deltaColumn);
             currentStartPointY = refToStartY + paperWhiteband + ((currentRow - 1) * deltaRow);
 
-            // move ROBOT from reference approach point to current starting position
-//            // move 10 up
-//            poseTrans[0] = 0; // x value
-//            poseTrans[1] = 0; // y value
-//            poseTrans[2] = -0.01; // z value
-//            poseTrans[3] = 0; // a value
-//            poseTrans[4] = 0; // b value
-//            poseTrans[5] = 0; // c value
-//            sendMessage(poseTrans, out);
-            // move to startXY
-            poseTrans[0] = -currentStartPointX; // x value
-            poseTrans[1] = -currentStartPointY; // y value
+            // move to startXY (50mm up from origing is hard coded in UR program)
+            poseTrans[1] = -currentStartPointX; // x value
+            poseTrans[0] = -currentStartPointY; // y value
             poseTrans[2] = 0; // z value
             poseTrans[3] = 0; // a value
             poseTrans[4] = 0; // b value
             poseTrans[5] = 0; // c value
             poseDrawingOrigin = poseTrans;
             sendMessage(poseTrans, out);
-//            // move 10 down
-//            poseTrans[0] = 0; // x value
-//            poseTrans[1] = 0; // y value
-//            poseTrans[2] = 0.01; // z value
-//            poseTrans[3] = 0; // a value
-//            poseTrans[4] = 0; // b value
-//            poseTrans[5] = 0; // c value
-//            sendMessage(poseTrans, out);
         }
 
         // create individual parts of lines
@@ -307,98 +241,77 @@ public class MakeScribble {
             residualDarkness = average(in) / GRAY_RESOLUTION * SCALE;
             System.out.format("%d -- remaining darkness: %.0f%% length: %.1f\n", lines, 100 * residualDarkness,
                     totalLength);
-            /*
-			 * ksj_ingevoegd
-			 */
 
             if (ROBOT) {
                 //
                 //when starting a new line make first movement in air
-                    poseTrans[0] = ((scaledLine[1].x) * -(calculatePaperScale(in)))-currentStartPointX;// * finalScale; // x value
-                    poseTrans[1] = ((scaledLine[1].y) * -(calculatePaperScale(in)))-currentStartPointY;// * finalScale; // y value
+                poseTrans[1] = ((scaledLine[1].x) * -(calculatePaperScale(in))) - currentStartPointX;// * finalScale; // x value
+                poseTrans[0] = ((scaledLine[1].y) * -(calculatePaperScale(in))) - currentStartPointY;// * finalScale; // y value
 //                    poseTrans[2] = 0; // z value
 //                    poseTrans[3] = 0; // a value
 //                    poseTrans[4] = 0; // b value
 //                    poseTrans[5] = 0; // c value
-                    sendMessage(poseTrans, out);
-                    //then move to paper, down and mark newLine as false
-            if (newLine) {
-                // move to paper
+                sendMessage(poseTrans, out);
+                //then move to paper, down and mark newLine as false
+                if (newLine) {
+                    // move to paper
 //                poseTrans[0] = 0; // x value
 //                poseTrans[1] = 0; // y value
-                poseTrans[2] = referenceHeight + 50; // z value, 50 is hardcoded in UR program
+                    poseTrans[2] = referenceHeight + 50; // z value, 50 is hardcoded in UR program
 //                poseTrans[3] = 0; // a value
 //                poseTrans[4] = 0; // b value
 //                poseTrans[5] = 0; // c value
-                sendMessage(poseTrans, out);
+                    sendMessage(poseTrans, out);
                     newLine = false;
                 }
             }
         }
 
-        // move ROBOT to reference approach point
+        // after finishing the scribble move ROBOT to referenceheight +50
         if (ROBOT) {
             // move away from paper
 //            poseTrans[0] = 0; // x value
 //            poseTrans[1] = 0; // y value
-            poseTrans[2] = -referenceHeight - 50; // z value, 50 is hardcoded in UR program
+            poseTrans[2] = -referenceHeight - 50;
+//            poseTrans[3] = 0; // a value
+//            poseTrans[4] = 0; // b value
+//            poseTrans[5] = 0; // c value
+            sendMessage(poseTrans, out);
+            // move to 50 above origin, mark newLine as true for next scribble
+            poseTrans[0] = 0; // x value
+            poseTrans[1] = 0; // y value
+//            poseTrans[2] = -referenceHeight - 50; // z value, 50 is hardcoded in UR program
 //            poseTrans[3] = 0; // a value
 //            poseTrans[4] = 0; // b value
 //            poseTrans[5] = 0; // c value
             sendMessage(poseTrans, out);
             newLine = true;
-            }
-
-            // can't move here !!!!!!!!!!!!!!! DONT KNOW WHERE I STOPPED AFTER
-            // ALL THE MOVEMENTS!!!!!!!!!!!!! ==>> move to absolute reference point via Robot program as soon as socket closes
-            // move to startXY
-//			poseTrans[0] = currentStartPointX / 1000; // x value
-//			poseTrans[1] = currentStartPointY / 1000; // y value
-//			poseTrans[2] = 0; // z value
-//			poseTrans[3] = 0; // a value
-//			poseTrans[4] = 0; // b value
-//			poseTrans[5] = 0; // c value
-//			sendMessage(poseTrans, out);
-
-
-        // Close socket with ROBOT only if ROBOT has been selected
-        if (ROBOT) {
-            try {
-                out.close();
-                server.close();
-            } catch (IOException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-            }
         }
     }
 
-    // KSJ
     // Line dimensions are NOT based on pixels Mat in
     public static double calculatePaperScale(Mat in) {
         // get the rows and colums of the picture used to generate lines
         double pixelsWidth = in.cols();
         double pixelsHeight = in.rows();
-        double paperScale = 1;
+        double paperScale;
         double effectivePW = paperWidth - (2 * paperWhiteband); // effectivePaperWidth
         double effectivePH = paperHeight - (2 * paperWhiteband); // effectivePaperHeight
 
         // depending on relation width vs height decide whether to resize currentxy output based on width or height for papersize and whiteband specified above
         if ((pixelsWidth / pixelsHeight) > (paperWidth / paperHeight)) {
-            paperScale= (effectivePW*outputMultiplicator);
+            paperScale = (effectivePW * outputMultiplicator);
         } else {
-            paperScale = (effectivePH*outputMultiplicator);
+            paperScale = (effectivePH * outputMultiplicator);
         }
         //the outputmultiplicator was calculated based on a setting of 450, therefore compensation is required in case NATIVE_RESOLUTION was changed to something else then 450, since NATIVE_RESOLUTION influences the output size
-        paperScale = paperScale*(450/NATIVE_RESOLUTION);
+        paperScale = paperScale * (450 / NATIVE_RESOLUTION);
         System.out.println(paperScale);
         return paperScale;
     }
 
     private static void sendMessage(double[] poseTrans, PrintWriter out) {
         String[] messageArr = new String[6];
-//        double[] newPose = new double[6];
-//        newPose = addPoses(poseDrawingOrigin, poseTrans);
 
         //create array of strings
         for (int i = 0; i < poseTrans.length; i++) {
@@ -406,21 +319,11 @@ public class MakeScribble {
         }
         //create final String to send
         String message = "(" + messageArr[0] + "," + messageArr[1] + "," + messageArr[2] + "," + messageArr[3] + ","
-                + messageArr[4] + "," + messageArr[5] +  ")";
+                + messageArr[4] + "," + messageArr[5] + ")";
         out.println(message);
         System.out.println(message);
         System.out.print(" ");
     }
-
-//    private static double[] addPoses(double[] pose1, double[] pose2) {
-//    private double[] sumPose = new double [poseTrans.length]
-//        for (int i = 0; i < poseTrans.length; ++i) {
-//            sumPose[i]= pose1[i] +pose2[i];
-//        }
-//    return sumPose;
-//    }
-
-
 
     private static double average(Mat in) {
         double total = Core.sumElems(in).val[0];
@@ -492,6 +395,42 @@ public class MakeScribble {
         } while (result[0].equals(result[1]));
     }
 
+    public static BufferedImage matToBufferedImage(Mat matrix) {
+        int cols = matrix.cols();
+        int rows = matrix.rows();
+        int elemSize = (int) matrix.elemSize();
+        byte[] data = new byte[cols * rows * elemSize];
+        int type;
+
+        matrix.get(0, 0, data);
+
+        switch (matrix.channels()) {
+            case 1:
+                type = BufferedImage.TYPE_BYTE_GRAY;
+                break;
+
+            case 3:
+                type = BufferedImage.TYPE_3BYTE_BGR;
+
+                // bgr to rgb
+                byte b;
+                for (int i = 0; i < data.length; i = i + 3) {
+                    b = data[i];
+                    data[i] = data[i + 2];
+                    data[i + 2] = b;
+                }
+                break;
+
+            default:
+                return null;
+        }
+
+        BufferedImage image = new BufferedImage(cols, rows, type);
+        image.getRaster().setDataElements(0, 0, cols, rows, data);
+
+        return image;
+    }
+
     private static class ImageComponent extends Component {
         private static final long serialVersionUID = -8921722655371221897L;
 
@@ -539,41 +478,4 @@ public class MakeScribble {
             }
         }
     }
-
-    public static BufferedImage matToBufferedImage(Mat matrix) {
-        int cols = matrix.cols();
-        int rows = matrix.rows();
-        int elemSize = (int) matrix.elemSize();
-        byte[] data = new byte[cols * rows * elemSize];
-        int type;
-
-        matrix.get(0, 0, data);
-
-        switch (matrix.channels()) {
-            case 1:
-                type = BufferedImage.TYPE_BYTE_GRAY;
-                break;
-
-            case 3:
-                type = BufferedImage.TYPE_3BYTE_BGR;
-
-                // bgr to rgb
-                byte b;
-                for (int i = 0; i < data.length; i = i + 3) {
-                    b = data[i];
-                    data[i] = data[i + 2];
-                    data[i + 2] = b;
-                }
-                break;
-
-            default:
-                return null;
-        }
-
-        BufferedImage image = new BufferedImage(cols, rows, type);
-        image.getRaster().setDataElements(0, 0, cols, rows, data);
-
-        return image;
-    }
-
 }
