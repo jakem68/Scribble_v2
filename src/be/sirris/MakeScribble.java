@@ -80,16 +80,16 @@ public class MakeScribble {
 
     //page setup information
     private static final double approachHeight = 15; // mm
-    private static final double referenceHeight = -15; // mm //set preleminary at 0 for security reasons
-    private static final double refToStartX = 69; // A3=40, testframe=69, distance from reference point to first drawing starting point in X
-    private static final double refToStartY = 15; // A3=-10, testframe=15, distance from reference point to first drawing starting point in Y
+    private static final double referenceHeight = 3; // mm //set preleminary at 0 for security reasons
+    private static final double refToStartX = 40; // A3=40, testframe=69, distance from reference point to first drawing starting point in X
+    private static final double refToStartY = -10; // A3=-10, testframe=15, distance from reference point to first drawing starting point in Y
     private static final int numberColumns = 3; // nr of drawing columns that can be drawn in 1 cycle
     private static final int numberRows = 2; // nr of drawing rows that can be drawn in 1 cycle
     private static final double deltaColumn = 142; // distance between columns
     private static final double deltaRow = 142; // distance between rows
-    private static final int paperWidth = 89; // A3=297mm, testframe=89mm
-    private static final int paperHeight = 126; // A3=420mm, testframe=126
-    private static final int paperWhiteband = 20; // mm
+    private static final int paperWidth = 297; // A3=297mm, testframe=89mm
+    private static final int paperHeight = 420; // A3=420mm, testframe=126
+    private static final int paperWhiteband = 30; // mm
     /**
      * This tells the algorithm when to stop: when the average darkness in the
      * image is below this threshold.

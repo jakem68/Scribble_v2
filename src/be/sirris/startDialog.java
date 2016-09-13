@@ -14,12 +14,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+
+
 import java.net.ServerSocket;
 import java.net.Socket;
 
 import static be.sirris.MakeScribble.*;
 
 public class startDialog extends JFrame {
+    public static String pictures = "/home/jan/Pictures";
     public static File defaultScribbleSettings = new File("/home/jan/Pictures/defaultScribbleSettings.set");
     public static File tempScribbleSettings = new File("/home/jan/Pictures/tempScribbleSettings.set");
     //TODO: Remove fileList if no further use then to print system out.
@@ -28,7 +31,7 @@ public class startDialog extends JFrame {
     private static File[] selectedFiles;
     private static String[] selectedFilesNames;
     double maxThreshold = 0.5;
-    double minThreshold = 0.1;
+    double minThreshold = 0.02;
     double maxGray_Resolution = 1000;
     double minGray_Resolution = 50;
     double maxScale = 0.4;
@@ -393,7 +396,8 @@ public class startDialog extends JFrame {
             fc.setAccessory(new ImagePreview(fc));
 
             fc.setMultiSelectionEnabled(true);
-            fc.setCurrentDirectory(new File("/home/jan/Pictures"));
+            fc.setCurrentDirectory(new File(pictures));
+
         }
         //Show it.
         int returnVal = fc.showDialog(startDialog.this,
