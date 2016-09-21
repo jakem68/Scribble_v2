@@ -123,6 +123,11 @@ public class MakeScribble {
     private static double currentStartPointX;
     private static double currentStartPointY;
 
+    private static double maxX = 0;
+    private static double maxY = 0;
+
+
+
     static {
         System.loadLibrary("opencv_java300");
     }
@@ -131,6 +136,12 @@ public class MakeScribble {
         String filename = args[0];
 
         Mat original = Imgcodecs.imread(filename);
+
+        //Rotate original to make long side stand up
+        if (original.width()>original.height()) {
+            Core.transpose(original, original);
+            Core.flip(original, original, 1);
+        }
 
         // Convert to gray-scale.
         Imgproc.cvtColor(original, original, Imgproc.COLOR_BGR2GRAY);
@@ -216,7 +227,7 @@ public class MakeScribble {
             currentStartPointX = refToStartX + paperWhiteband + ((currentColumn - 1) * deltaColumn);
             currentStartPointY = refToStartY + paperWhiteband + ((currentRow - 1) * deltaRow);
 
-            // move to startXY (50mm up from origing is hard coded in UR program)
+            // move to startXY (50mm up from origin is hard coded in UR program)
             poseTrans[1] = -currentStartPointX; // x value
             poseTrans[0] = -currentStartPointY; // y value
             poseTrans[2] = 0; // z value
@@ -241,6 +252,18 @@ public class MakeScribble {
             residualDarkness = average(in) / GRAY_RESOLUTION * SCALE;
             System.out.format("%d -- remaining darkness: %.0f%% length: %.1f\n", lines, 100 * residualDarkness,
                     totalLength);
+
+
+            // check for maximum point in x and y direction (print to system.log at the end of scribble)
+            if ((scaledLine[1].x * (calculatePaperScale(in))) > maxX) {
+            maxX = scaledLine[1].x * (calculatePaperScale(in));
+            }
+
+            if ((scaledLine[1].y * (calculatePaperScale(in))) > maxY) {
+            maxY = scaledLine[1].y * (calculatePaperScale(in));
+            }
+
+
 
             if (ROBOT) {
                 //
@@ -267,6 +290,34 @@ public class MakeScribble {
             }
         }
 
+        //after finishing the scribble send maxX and maxY of the scribble to system.log
+        System.out.print("TAG: (maxX, maxY) = (");
+        System.out.print(maxX);
+        System.out.print(", ");
+        System.out.print(maxY);
+        System.out.println(")");
+
+        //check whether either maxX or maxX exceeds allowable value, allowable value = paper size - whiteband
+        if (maxX > (paperWidth-2*paperWhiteband)){
+            System.out.print("ATTENTION: width of the drawing ");
+            System.out.print(maxX);
+            System.out.print(" exceeds effective width of the paper ");
+            System.out.print(paperWidth-2*paperWhiteband);
+            System.out.println("!!!");
+
+        }
+        if (maxY > (paperHeight-2*paperWhiteband)){
+            System.out.print("ATTENTION: height of the drawing ");
+            System.out.print(maxY);
+            System.out.print(" exceeds effective height of the paper ");
+            System.out.print(paperHeight-2*paperWhiteband);
+            System.out.println("!!!");
+
+        }
+
+
+
+
         // after finishing the scribble move ROBOT to referenceheight +50
         if (ROBOT) {
             // move away from paper
@@ -291,7 +342,7 @@ public class MakeScribble {
 
     // Line dimensions are NOT based on pixels Mat in
     public static double calculatePaperScale(Mat in) {
-        // get the rows and colums of the picture used to generate lines
+        // get the rows and columns of the picture used to generate lines
         double pixelsWidth = in.cols();
         double pixelsHeight = in.rows();
         double paperScale;
