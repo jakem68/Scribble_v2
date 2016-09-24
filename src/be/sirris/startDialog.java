@@ -7,20 +7,36 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import java.awt.*;
 import java.awt.event.*;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
+import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.file.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+
+
+import java.net.ServerSocket;
+import java.net.Socket;
+
 import static be.sirris.MakeScribble.*;
 
 public class startDialog extends JFrame {
+    public static String _pictures = "/home/jan/Pictures";
+    public static File _defaultScribbleSettings = new File("/home/jan/Pictures/_defaultScribbleSettings.set");
+    public static File _tempScribbleSettings = new File("/home/jan/Pictures/_tempScribbleSettings.set");
+    //TODO: Remove fileList if no further use then to print system out.
+    private static ArrayList<File> fileList = new ArrayList<File>();
+    private static String newline = "\n";
+    private static File[] selectedFiles;
+    private static String[] selectedFilesNames;
+    public static boolean _settingsFileExists;
+    double maxThreshold = 0.5;
+    double minThreshold = 0.02;
+    double maxGray_Resolution = 1000;
+    double minGray_Resolution = 50;
+    double maxScale = 0.4;
+    double minScale = 0.1;
     private JPanel contentPane;
     private JButton selectFilesButton;
     private JButton buttonCancel;
@@ -28,7 +44,7 @@ public class startDialog extends JFrame {
     private JList list1;
     private JButton testScribbleButton;
     private JSlider thresholdSlider;
-    private JLabel darkness;
+    private JLabel threshold;
     private JSlider grayResSlider;
     private JLabel grayResolution;
     private JSlider lineWeightSlider;
@@ -37,41 +53,24 @@ public class startDialog extends JFrame {
     private JButton saveSettingsButton;
     private JButton setNewDefaultButton;
     private JButton scribbleButton;
+    private JButton pageSetupButton;
     private JFileChooser fc;
-    public static File defaultScribbleSettings = new File("/home/jan/Pictures/defaultScribbleSettings.set");
-    public static File tempScribbleSettings = new File("/home/jan/Pictures/tempScribbleSettings.set");
 
-    double maxThreshold = 0.5;
-    double minThreshold = 0.1;
-    double maxGray_Resolution = 500;
-    double minGray_Resolution = 50;
-    double maxScale = 0.4;
-    double minScale = 0.1;
-
-
-    //TODO: Remove fileList if no further use then to print.
-    private static ArrayList<File> fileList = new ArrayList<File>();
-    private static String newline = "\n";
-    private static File[] selectedFiles;
-    private static String[] selectedFilesNames;
-
-//    static {
-//        // System.loadLibrary("opencv_java246");
-//        System.loadLibrary("opencv_java300");
-//    }
-
+    private static final String UR10_IP = "192.168.2.100";
+    private static final int PORT = 30000;
+    public static PrintWriter out = null;
+    public static Socket server = null;
+    public static int _drawingCounter = 0;
 
     public startDialog(String title) {
-//        super((JFrame)null, title);
         pack();
 
         setContentPane(contentPane);
-//        setModal(true);
         getRootPane().setDefaultButton(selectFilesButton);
         contentPane.setPreferredSize(new Dimension(600, 400));
 
 // when cross is clicked
-        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+        setDefaultCloseOperation(DISPOSE_ON_CLOSE);
         addWindowListener(new WindowAdapter() {
             public void windowClosing(WindowEvent e) {
                 onCancel();
@@ -103,7 +102,7 @@ public class startDialog extends JFrame {
         scribbleButton.addActionListener(new ActionListener() {
             @Override
             public void actionPerformed(ActionEvent e) {
-onScribble();
+                onScribble();
             }
         });
 
@@ -114,6 +113,8 @@ onScribble();
                 try {
                     onTestScribble();
                 } catch (IOException e1) {
+                    e1.printStackTrace();
+                } catch (InterruptedException e1) {
                     e1.printStackTrace();
                 }
             }
@@ -159,7 +160,6 @@ onScribble();
             }
         });
 
-
 //on thresholdSliderChange
         thresholdSlider.addChangeListener(new ChangeListener() {
             @Override
@@ -184,102 +184,129 @@ onScribble();
             }
         });
 
+//on pageSetup
+        pageSetupButton.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                onPageSetup();
+            }
+        });
+    }
+
+    private void onPageSetup() {
+
+        pageSetup.run();
+
+    }
+
+
+    public static void setOriginalDefaults() {
+        THRESHOLD = THRESHOLD_ORIGINAL;
+        GRAY_RESOLUTION = GRAY_RESOLUTION_ORIGINAL;
+        SCALE = SCALE_ORIGINAL;
+    }
+
+    //parse incoming file and set variables THRESHOLD, GRAY_RESOLUTION, SCALE
+    public static void parseAndSetScribbleSettings(File sfile) throws IOException {
+        // create a Buffered Reader object instance with a FileReader
+        BufferedReader br = new BufferedReader(new FileReader(sfile));
+
+        // read the first line from the text file
+        String fileRead = br.readLine();
+
+        int i = 2;
+        int j = 3;
+        //String[] lineParsed = new String[i];
+        String[][] fileParsed = new String[j][i];
+        j = 0;
+        // loop until all lines are read
+        while (fileRead != null) {
+            // use string.split to load a string array with the values from each line of
+            // the file, using a comma as the delimiter
+            String[] lineParsed = fileRead.split("=");
+            fileParsed[j] = lineParsed;
+            j += 1;
+
+            // read next line before looping
+            // if end of file reached
+            fileRead = br.readLine();
+        }
+        // close file stream
+        br.close();
+
+        // set Variables
+        THRESHOLD = Double.parseDouble(fileParsed[0][1]);
+        System.out.println(THRESHOLD);
+        GRAY_RESOLUTION = Double.parseDouble(fileParsed[1][1]);
+        SCALE = Double.parseDouble(fileParsed[2][1]);
+    }
+
+    private static void deleteFile(Path path) {
+        try {
+            Files.delete(path);
+        } catch (NoSuchFileException x) {
+            System.err.format("%s: no such" + " file or directory%n", path);
+        } catch (DirectoryNotEmptyException x) {
+            System.err.format("%s not empty%n", path);
+        } catch (IOException x) {
+            // File permission problems are caught here.
+            System.err.println(x);
+        }
     }
 
     private void onCancel() {
 // add your code here if necessary
         System.out.println("TAG: I am here 1");
-        dispose();
+//        dispose();
+        try {
+            out.close();
+            server.close();
+        } catch (IOException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        finally {
+            System.exit(0);
+        }
     }
+
     private void onSliderChange() {
         createTempSettingsFile();
 //        contentPane.transferFocusBackward();
     }
 
     private void onScribble() {
-//TODO
-        //read the selected file names in list1 for scribbling and place it in a string array for passing to class MakeScribble
-
-        //for each file in string array
-          // determine the applicable settingsfile
-
-          //parseAndSetScribbleSettings(applicable settingsfile)
-
-          //hand the file to MakeScribble
-
-        //handle next file
-
-
+        //turn of Robot communication
+        MakeScribble.ROBOT = true;
+        ScribbleRunnable scribbleRunnable = new ScribbleRunnable();
+        Thread t = new Thread(scribbleRunnable);
+        t.start();
     }
 
-    SwingWorker worker = new SwingWorker<Void, Void>() {
-        @Override
-        public Void doInBackground() throws IOException {
-            // execute onTestScribble in a new background thread
-            //create array of strings to pass as argument to MakeScribble with  length 1
-            System.out.println("trying to start new worker");
+    private void onTestScribble() throws IOException, InterruptedException {
+        //turn of Robot communication
+        MakeScribble.ROBOT = false;
 
-            String scribbleArg[] = new String[1];
-
-            //turn of Robot communication
-            MakeScribble.ROBOT = false;
-
-            //check whether something has been selected
-            if (list1.getSelectedValue() != null) {
-
-                //get the indices of the selected items and run through them
-                int selectedIx[] = list1.getSelectedIndices();
-                for (int i = 0; i < selectedIx.length; i++) {
-                    //get item based on index
-                    Object sel = list1.getModel().getElementAt(selectedIx[i]);
-                    //place the string representation in scribbleArg to pass to MakeScribble
-                    scribbleArg[0] = ((String) sel);
-
-                    //pass the values as arguments to MakeScribble
-                    determineApplicableSettingsfile_AndParse(scribbleArg[0]);
-                    try {
-//reduce to 1 main only --> call MakeScribble.run instead of MakeScribble.main
-                        MakeScribble.doRun(scribbleArg);
-//                    MakeScribble.main(scribbleArg);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }
-            } else {
-                JOptionPane.showMessageDialog(null, "There is nothing selected.");
-            }
-            return null;
-        }
-
-        @Override
-        public void done() {
-            System.out.println("when work is done before returning");
-        }
-    };
-
-    private void onTestScribble() throws IOException {
-
-        worker.execute();
-
-
+        ScribbleRunnable scribbleRunnable = new ScribbleRunnable();
+        Thread t = new Thread(scribbleRunnable);
+        t.start();
     }
 
     private void onSelectPicture() throws IOException {
         //check whether specific settingsfile exists
 //        String selected = (String) list1.getSelectedValue();
-        if(tempScribbleSettings.exists()) {
-            deleteFile(tempScribbleSettings.toPath());
+        if (_tempScribbleSettings.exists()) {
+            deleteFile(_tempScribbleSettings.toPath());
         }
 
         int nrSelected = list1.getSelectedIndices().length;
-        if (nrSelected< 1) {
+        if (nrSelected < 1) {
             saveSettingsButton.setEnabled(false);
             lineWeightSlider.setEnabled(false);
             grayResSlider.setEnabled(false);
             thresholdSlider.setEnabled(false);
-
         }
-        if (nrSelected == 1){
+        if (nrSelected == 1) {
             saveSettingsButton.setEnabled(true);
             lineWeightSlider.setEnabled(true);
             grayResSlider.setEnabled(true);
@@ -291,13 +318,13 @@ onScribble();
             saveSettingsButton.setEnabled(true);
         }
 
-        if(nrSelected>1) {
+        if (nrSelected > 1) {
             saveSettingsButton.setEnabled(false);
             lineWeightSlider.setEnabled(false);
             grayResSlider.setEnabled(false);
             thresholdSlider.setEnabled(false);
-            if(tempScribbleSettings.exists()) {
-                deleteFile(tempScribbleSettings.toPath());
+            if (_tempScribbleSettings.exists()) {
+                deleteFile(_tempScribbleSettings.toPath());
             }
             int selectedIx = list1.getLeadSelectionIndex();
             String selected = (String) list1.getModel().getElementAt(selectedIx);
@@ -307,23 +334,24 @@ onScribble();
 
     private void onDefault() throws IOException {
         //parse default settings file and set values in MakeScribble
-        parseAndSetScribbleSettings(defaultScribbleSettings);
+        parseAndSetScribbleSettings(_defaultScribbleSettings);
         //adjust sliders accordingly: set sliders based on values in MakeScribble
         setSliders();
-        if (tempScribbleSettings.exists()) {
-            deleteFile(tempScribbleSettings.toPath());
+        if (_tempScribbleSettings.exists()) {
+            deleteFile(_tempScribbleSettings.toPath());
         }
     }
 
-    private void onNewDefault(){
-    String settingsFilename = defaultScribbleSettings.getPath();
+    private void onNewDefault() {
+        String settingsFilename = _defaultScribbleSettings.getPath();
 
-    //read the values from the sliders and return a list of strings containing the content for the .set file
-    List<String> lines = readSliders();
+        //read the values from the sliders and return a list of strings containing the content for the .set file
+        List<String> lines = readSliders();
 
-    //write the List of Strings to the settings file
-    writeSettingsfile(settingsFilename, lines);
-}
+        //write the List of Strings to the settings file
+        writeSettingsfile(settingsFilename, lines);
+    }
+
     private void onSaveSettings() {
         String selected = (String) list1.getSelectedValue();
         String settingsFilename = selected + ".set";
@@ -334,7 +362,6 @@ onScribble();
         //write the List of strings to the settings file
         writeSettingsfile(settingsFilename, lines);
     }
-
 
     private void fileChooser() {
         //Set up the file chooser.
@@ -353,7 +380,8 @@ onScribble();
             fc.setAccessory(new ImagePreview(fc));
 
             fc.setMultiSelectionEnabled(true);
-            fc.setCurrentDirectory(new File("/home/jan/Pictures"));
+            fc.setCurrentDirectory(new File(_pictures));
+
         }
         //Show it.
         int returnVal = fc.showDialog(startDialog.this,
@@ -367,7 +395,6 @@ onScribble();
                 textArea1.append("Attaching file: " + f.getName()
                         + "." + newline);
                 fileList.add(f);
-
             }
         } else {
             textArea1.append("Attachment cancelled by user." + newline);
@@ -382,7 +409,6 @@ onScribble();
         //Place selected files names in Jlist list1
         list1.setListData(selectedFilesNames);
 
-
         textArea1.setCaretPosition(textArea1.getDocument().getLength());
         System.out.println(fileList);
 
@@ -395,19 +421,23 @@ onScribble();
 
         String settingsFilename = iFile + ".set";
         File settingsFile = new File(settingsFilename);
-        boolean settingsFileExists = settingsFile.exists();
+        _settingsFileExists = settingsFile.exists();
 
         //set slider values to either tempSettingsFile, specific settings file or default file
-        if (tempScribbleSettings.exists()) {
-            parseAndSetScribbleSettings(tempScribbleSettings);
+        if (_tempScribbleSettings.exists()) {
+            parseAndSetScribbleSettings(_tempScribbleSettings);
+            System.out.println(1);
         } else {
-            if (settingsFileExists) {
+            if (_settingsFileExists) {
                 parseAndSetScribbleSettings(settingsFile);
+                System.out.println(2);
             } else {
-                if (defaultScribbleSettings.exists()) {
-                    parseAndSetScribbleSettings(defaultScribbleSettings);
+                if (_defaultScribbleSettings.exists()) {
+                    parseAndSetScribbleSettings(_defaultScribbleSettings);
+                    System.out.println(3);
                 } else {
                     setOriginalDefaults();
+                    System.out.println(4);
                 }
             }
         }
@@ -436,83 +466,16 @@ onScribble();
         List<String> lines = Arrays.asList("Threshold = " + tempThreshold, "Gray resolution = " + tempGray_Resolution, "Scale = " + tempScale);
         return lines;
     }
-    private void writeSettingsfile(String settingsFilename, List<String> lines){
-        Path file = Paths.get(settingsFilename);
-        try {
-            Files.write(file, lines, Charset.forName("UTF-8"));
-
-        } catch (IOException e1) {
-            e1.printStackTrace();
-        }
-
-
-    }
-
-    public static void setOriginalDefaults(){
-        THRESHOLD = THRESHOLD_ORIGINAL;
-        GRAY_RESOLUTION = GRAY_RESOLUTION_ORIGINAL;
-        SCALE = SCALE_ORIGINAL;
-
-    }
-
-    //parse incoming file and set variables TRESHOLD GRAY_RESOLUTION SCALE
-    public static void parseAndSetScribbleSettings(File sfile) throws IOException {
-        // create a Buffered Reader object instance with a FileReader
-        BufferedReader br = new BufferedReader(new FileReader(sfile));
-
-        // read the first line from the text file
-        String fileRead = br.readLine();
-
-        int i = 2;
-        int j = 3;
-        //String[] lineParsed = new String[i];
-        String[][] fileParsed = new String[j][i];
-        j = 0;
-        // loop until all lines are read
-        while (fileRead != null)
-        {
-            // use string.split to load a string array with the values from each line of
-            // the file, using a comma as the delimiter
-            String[] lineParsed = fileRead.split("=");
-            fileParsed[j]=lineParsed;
-            j+=1;
-
-            // read next line before looping
-            // if end of file reached
-            fileRead = br.readLine();
-        }
-        // close file stream
-        br.close();
-
-        // set Variables
-        THRESHOLD = Double.parseDouble(fileParsed[0][1]);
-        System.out.println(THRESHOLD);
-        GRAY_RESOLUTION = Double.parseDouble(fileParsed[1][1]);
-        SCALE = Double.parseDouble(fileParsed[2][1]);
-
-    }
-    private static void deleteFile(Path path) {
-        try {
-            Files.delete(path);
-        } catch (NoSuchFileException x) {
-            System.err.format("%s: no such" + " file or directory%n", path);
-        } catch (DirectoryNotEmptyException x) {
-            System.err.format("%s not empty%n", path);
-        } catch (IOException x) {
-            // File permission problems are caught here.
-            System.err.println(x);
-        }
-    }
 
 //    private static void setScribblerSettings(String ifilename) throws IOException {
 //        //check whether there is a settings file with the name filename+".set" in /home/jan/Pictures
 //        File sfile = new File(ifilename + ".set");
 //        boolean sfileExists = sfile.exists();
-//        boolean tempFileExists = startDialog.tempScribbleSettings.exists();
+//        boolean tempFileExists = startDialog._tempScribbleSettings.exists();
 //        if (tempFileExists) {
-//            parseAndSetScribbleSettings(startDialog.tempScribbleSettings);
+//            parseAndSetScribbleSettings(startDialog._tempScribbleSettings);
 //            System.out.println("TAG: using tempfile settings");
-//            deleteFile(Paths.get(String.valueOf(startDialog.tempScribbleSettings)));
+//            deleteFile(Paths.get(String.valueOf(startDialog._tempScribbleSettings)));
 //        } else if (sfileExists) {
 //            //if yes use the values in this file
 //            //HERE
@@ -520,10 +483,10 @@ onScribble();
 //            parseAndSetScribbleSettings(sfile);
 //            System.out.println("TAG: using image settings file");
 //        } else {
-//            //if no use the values in defaultScribbleSettings.set
-//            boolean defaultFileExists = startDialog.defaultScribbleSettings.exists();
+//            //if no use the values in _defaultScribbleSettings.set
+//            boolean defaultFileExists = startDialog._defaultScribbleSettings.exists();
 //            if (defaultFileExists) {
-//                parseAndSetScribbleSettings(startDialog.defaultScribbleSettings);
+//                parseAndSetScribbleSettings(startDialog._defaultScribbleSettings);
 //                System.out.println("TAG: using default settings file");
 //            }
 //            //if no file exist use the original default values
@@ -535,14 +498,21 @@ onScribble();
 //        }
 //    }
 
+    private void writeSettingsfile(String settingsFilename, List<String> lines) {
+        Path file = Paths.get(settingsFilename);
+        try {
+            Files.write(file, lines, Charset.forName("UTF-8"));
+        } catch (IOException e1) {
+            e1.printStackTrace();
+        }
+    }
 
-
-    private void setSliders(){
+    private void setSliders() {
 
         //recalculate to slidervalues
-        int tempThreshold = (int)((THRESHOLD - minThreshold) * 100 / (maxThreshold - minThreshold));
-        int tempGrayGray_Resolution = (int)((GRAY_RESOLUTION-minGray_Resolution)* 100 / (maxGray_Resolution - minGray_Resolution));
-        int tempScale = (int)((SCALE-minScale)* 100 / (maxScale - minScale));
+        int tempThreshold = (int) ((THRESHOLD - minThreshold) * 100 / (maxThreshold - minThreshold));
+        int tempGrayGray_Resolution = (int) ((GRAY_RESOLUTION - minGray_Resolution) * 100 / (maxGray_Resolution - minGray_Resolution));
+        int tempScale = (int) ((SCALE - minScale) * 100 / (maxScale - minScale));
 
         thresholdSlider.setValue(tempThreshold);
         grayResSlider.setValue(tempGrayGray_Resolution);
@@ -552,7 +522,7 @@ onScribble();
     private void createTempSettingsFile() {
 
         if (list1.getSelectedIndices().length == 1) {
-            String settingsFilename = tempScribbleSettings.getPath();
+            String settingsFilename = _tempScribbleSettings.getPath();
 
             //read the values from the sliders and return a list of strings containing the content for the .set file
             List<String> lines = readSliders();
@@ -562,20 +532,79 @@ onScribble();
             //TODO: return focus to previous
         }
     }
+private void startServer() {
+//TAG:server
+    try {
+        ServerSocket listener = new ServerSocket(PORT);
+        server = listener.accept();
+        out = new PrintWriter(server.getOutputStream(), true);
+        System.out.println(
+                "Generic Network Server: got connection from " + server.getInetAddress().getHostName() + "\n");
+        listener.close();
+    } catch (IOException ioe) {
+        System.out.println("IOException: " + ioe);
+        ioe.printStackTrace();
+    }
+//TAG:server
+    }
 
+    public class ScribbleRunnable implements Runnable {
+
+        public void run() {
+
+            startServer();
+
+            // code in the other thread, can reference "var" variable
+            //create array of strings to pass as argument to MakeScribble with  length 1
+            System.out.println("trying to start new worker");
+
+            String scribbleArg[] = new String[1];
+
+            //check whether something has been selected
+            if (list1.getSelectedValue() != null) {
+
+                //get the indices of the selected items and run through them
+                int selectedIx[] = list1.getSelectedIndices();
+                for (int i = 0; i < selectedIx.length; i++) {
+                    //get item based on index
+                    Object sel = list1.getModel().getElementAt(selectedIx[i]);
+                    //place the string representation in scribbleArg to pass to MakeScribble
+                    scribbleArg[0] = ((String) sel);
+
+                    //pass the values as arguments to MakeScribble
+                    try {
+                        determineApplicableSettingsfile_AndParse(scribbleArg[0]);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                    try {
+//reduce to 1 main only --> call MakeScribble.run instead of MakeScribble.main
+                        MakeScribble.run(scribbleArg);
+                        setSliders();
+//                    MakeScribble.main(scribbleArg);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+                _drawingCounter = 0;
+            } else {
+                JOptionPane.showMessageDialog(null, "There is nothing selected.");
+            }
+        }
+    }
+    private static void createGUI() {
+        startDialog dialog = new startDialog("Scribble");
+        dialog.setContentPane(new startDialog("Scribble").contentPane);
+        dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
+        dialog.pack();
+        dialog.setVisible(true);
+    }
     public static void main(String[] args) {
 
-        javax.swing.SwingUtilities.invokeLater(new Runnable(){
-            public void run(){
-                startDialog dialog = new startDialog ("Scribble");
-                dialog.setContentPane(new startDialog("Scribble").contentPane);
-                dialog.setDefaultCloseOperation(JDialog.DISPOSE_ON_CLOSE);
-                dialog.pack();
-                dialog.setVisible(true);
-//                System.exit(0);
-
+        javax.swing.SwingUtilities.invokeLater(new Runnable() {
+            public void run() {
+                createGUI();
             }
         });
-
     }
 }
