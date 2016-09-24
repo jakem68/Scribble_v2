@@ -80,13 +80,13 @@ public class MakeScribble {
 
     //page setup information
     private static final double approachHeight = 15; // mm
-    private static final double referenceHeight = 3; // mm //set preleminary at 0 for security reasons
-    private static final double refToStartX = 40; // A3=40, testframe=69, distance from reference point to first drawing starting point in X
-    private static final double refToStartY = -10; // A3=-10, testframe=15, distance from reference point to first drawing starting point in Y
+    private static double referenceHeight = 6; // mm //set preleminary at 0 for security reasons
+    private static final double refToStartX = 10; // A3=40, testframe=69, distance from reference point to first drawing starting point in X
+    private static final double refToStartY = 10; // A3=-10, testframe=15, distance from reference point to first drawing starting point in Y
     private static final int numberColumns = 3; // nr of drawing columns that can be drawn in 1 cycle
     private static final int numberRows = 2; // nr of drawing rows that can be drawn in 1 cycle
-    private static final double deltaColumn = 142; // distance between columns
-    private static final double deltaRow = 142; // distance between rows
+    private static final double deltaColumn = 337; // distance from column to column (pitch) 40 + 297
+    private static final double deltaRow = 460; // distance from row to row (pitch) 40 + 420
     private static final int paperWidth = 297; // A3=297mm, testframe=89mm
     private static final int paperHeight = 420; // A3=420mm, testframe=126
     private static final int paperWhiteband = 30; // mm
@@ -117,16 +117,13 @@ public class MakeScribble {
     private static double outputMultiplicator = 0.0017*1.3; //measured and calculated based on real drawed picture, corrected after first tests
 
     // initializing the count of drawingposition
-    private static int currentColumn = 0;
-    private static int currentRow = 1;
-    private static int drawingCounter = 1;
+    private static double currentColumn = 1;
+    private static double currentRow = 1;
     private static double currentStartPointX;
     private static double currentStartPointY;
 
     private static double maxX = 0;
     private static double maxY = 0;
-
-
 
     static {
         System.loadLibrary("opencv_java300");
@@ -196,6 +193,13 @@ public class MakeScribble {
         // Now is the actual algorithm!
         Point lastP = null;
         double residualDarkness = average(in) / GRAY_RESOLUTION * SCALE;
+
+        //if settingsfileExists(false) calculate threshold as percentage of residualDarkness
+        if (_settingsFileExists==false){
+            THRESHOLD = (residualDarkness*0.55);
+
+        }
+
         double totalLength = 0;
         int lines = 0;
         component.hideImage();
@@ -204,14 +208,10 @@ public class MakeScribble {
         if (ROBOT) {
             newLine = true;
 
-            // calculate current drawing position
-            if (drawingCounter > numberColumns) {
-                currentRow += 1;
-                currentColumn = 1;
-                drawingCounter = 1;
-            } else {
-                currentColumn += 1;
-            }
+            //calculate row en column
+            currentRow = Math.floor(_drawingCounter /3)+1;
+            currentColumn =  (_drawingCounter -((currentRow-1)*numberColumns))+1;
+
             if (currentRow > numberRows) {
                 System.out.println("You are drawing more drawings then positions available!");
                 System.out.println("The program will stop!");
@@ -223,7 +223,30 @@ public class MakeScribble {
                 }
                 System.exit(0);
             }
-            drawingCounter += 1;
+
+            //calculate compensated referenceHeight to compensate for location on the table
+            referenceHeight = 6;
+            int compensation;
+            switch (_drawingCounter) {
+                case 0:  compensation= 0;
+                    break;
+                case 1:  compensation= 3;
+                    break;
+                case 2:  compensation= 4;
+                    break;
+                case 3:  compensation= 0;
+                    break;
+                case 4:  compensation= 1;
+                    break;
+                case 5:  compensation= 2;
+                    break;
+                default: compensation= 0;
+                    break;
+            }
+
+            referenceHeight += compensation;
+
+            _drawingCounter += 1;
             currentStartPointX = refToStartX + paperWhiteband + ((currentColumn - 1) * deltaColumn);
             currentStartPointY = refToStartY + paperWhiteband + ((currentRow - 1) * deltaRow);
 

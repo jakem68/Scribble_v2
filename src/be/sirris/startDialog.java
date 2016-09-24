@@ -22,14 +22,15 @@ import java.net.Socket;
 import static be.sirris.MakeScribble.*;
 
 public class startDialog extends JFrame {
-    public static String pictures = "/home/jan/Pictures";
-    public static File defaultScribbleSettings = new File("/home/jan/Pictures/defaultScribbleSettings.set");
-    public static File tempScribbleSettings = new File("/home/jan/Pictures/tempScribbleSettings.set");
+    public static String _pictures = "/home/jan/Pictures";
+    public static File _defaultScribbleSettings = new File("/home/jan/Pictures/_defaultScribbleSettings.set");
+    public static File _tempScribbleSettings = new File("/home/jan/Pictures/_tempScribbleSettings.set");
     //TODO: Remove fileList if no further use then to print system out.
     private static ArrayList<File> fileList = new ArrayList<File>();
     private static String newline = "\n";
     private static File[] selectedFiles;
     private static String[] selectedFilesNames;
+    public static boolean _settingsFileExists;
     double maxThreshold = 0.5;
     double minThreshold = 0.02;
     double maxGray_Resolution = 1000;
@@ -59,6 +60,7 @@ public class startDialog extends JFrame {
     private static final int PORT = 30000;
     public static PrintWriter out = null;
     public static Socket server = null;
+    public static int _drawingCounter = 0;
 
     public startDialog(String title) {
         pack();
@@ -276,24 +278,6 @@ public class startDialog extends JFrame {
     private void onScribble() {
         //turn of Robot communication
         MakeScribble.ROBOT = true;
-
-//TAG:server
-        try {
-            ServerSocket listener = new ServerSocket(PORT);
-            server = listener.accept();
-            out = new PrintWriter(server.getOutputStream(), true);
-            System.out.println(
-                    "Generic Network Server: got connection from " + server.getInetAddress().getHostName() + "\n");
-            listener.close();
-        } catch (IOException ioe) {
-            System.out.println("IOException: " + ioe);
-            ioe.printStackTrace();
-        }
-//TAG:server
-
-
-
-
         ScribbleRunnable scribbleRunnable = new ScribbleRunnable();
         Thread t = new Thread(scribbleRunnable);
         t.start();
@@ -311,8 +295,8 @@ public class startDialog extends JFrame {
     private void onSelectPicture() throws IOException {
         //check whether specific settingsfile exists
 //        String selected = (String) list1.getSelectedValue();
-        if (tempScribbleSettings.exists()) {
-            deleteFile(tempScribbleSettings.toPath());
+        if (_tempScribbleSettings.exists()) {
+            deleteFile(_tempScribbleSettings.toPath());
         }
 
         int nrSelected = list1.getSelectedIndices().length;
@@ -339,8 +323,8 @@ public class startDialog extends JFrame {
             lineWeightSlider.setEnabled(false);
             grayResSlider.setEnabled(false);
             thresholdSlider.setEnabled(false);
-            if (tempScribbleSettings.exists()) {
-                deleteFile(tempScribbleSettings.toPath());
+            if (_tempScribbleSettings.exists()) {
+                deleteFile(_tempScribbleSettings.toPath());
             }
             int selectedIx = list1.getLeadSelectionIndex();
             String selected = (String) list1.getModel().getElementAt(selectedIx);
@@ -350,16 +334,16 @@ public class startDialog extends JFrame {
 
     private void onDefault() throws IOException {
         //parse default settings file and set values in MakeScribble
-        parseAndSetScribbleSettings(defaultScribbleSettings);
+        parseAndSetScribbleSettings(_defaultScribbleSettings);
         //adjust sliders accordingly: set sliders based on values in MakeScribble
         setSliders();
-        if (tempScribbleSettings.exists()) {
-            deleteFile(tempScribbleSettings.toPath());
+        if (_tempScribbleSettings.exists()) {
+            deleteFile(_tempScribbleSettings.toPath());
         }
     }
 
     private void onNewDefault() {
-        String settingsFilename = defaultScribbleSettings.getPath();
+        String settingsFilename = _defaultScribbleSettings.getPath();
 
         //read the values from the sliders and return a list of strings containing the content for the .set file
         List<String> lines = readSliders();
@@ -396,7 +380,7 @@ public class startDialog extends JFrame {
             fc.setAccessory(new ImagePreview(fc));
 
             fc.setMultiSelectionEnabled(true);
-            fc.setCurrentDirectory(new File(pictures));
+            fc.setCurrentDirectory(new File(_pictures));
 
         }
         //Show it.
@@ -437,19 +421,23 @@ public class startDialog extends JFrame {
 
         String settingsFilename = iFile + ".set";
         File settingsFile = new File(settingsFilename);
-        boolean settingsFileExists = settingsFile.exists();
+        _settingsFileExists = settingsFile.exists();
 
         //set slider values to either tempSettingsFile, specific settings file or default file
-        if (tempScribbleSettings.exists()) {
-            parseAndSetScribbleSettings(tempScribbleSettings);
+        if (_tempScribbleSettings.exists()) {
+            parseAndSetScribbleSettings(_tempScribbleSettings);
+            System.out.println(1);
         } else {
-            if (settingsFileExists) {
+            if (_settingsFileExists) {
                 parseAndSetScribbleSettings(settingsFile);
+                System.out.println(2);
             } else {
-                if (defaultScribbleSettings.exists()) {
-                    parseAndSetScribbleSettings(defaultScribbleSettings);
+                if (_defaultScribbleSettings.exists()) {
+                    parseAndSetScribbleSettings(_defaultScribbleSettings);
+                    System.out.println(3);
                 } else {
                     setOriginalDefaults();
+                    System.out.println(4);
                 }
             }
         }
@@ -483,11 +471,11 @@ public class startDialog extends JFrame {
 //        //check whether there is a settings file with the name filename+".set" in /home/jan/Pictures
 //        File sfile = new File(ifilename + ".set");
 //        boolean sfileExists = sfile.exists();
-//        boolean tempFileExists = startDialog.tempScribbleSettings.exists();
+//        boolean tempFileExists = startDialog._tempScribbleSettings.exists();
 //        if (tempFileExists) {
-//            parseAndSetScribbleSettings(startDialog.tempScribbleSettings);
+//            parseAndSetScribbleSettings(startDialog._tempScribbleSettings);
 //            System.out.println("TAG: using tempfile settings");
-//            deleteFile(Paths.get(String.valueOf(startDialog.tempScribbleSettings)));
+//            deleteFile(Paths.get(String.valueOf(startDialog._tempScribbleSettings)));
 //        } else if (sfileExists) {
 //            //if yes use the values in this file
 //            //HERE
@@ -495,10 +483,10 @@ public class startDialog extends JFrame {
 //            parseAndSetScribbleSettings(sfile);
 //            System.out.println("TAG: using image settings file");
 //        } else {
-//            //if no use the values in defaultScribbleSettings.set
-//            boolean defaultFileExists = startDialog.defaultScribbleSettings.exists();
+//            //if no use the values in _defaultScribbleSettings.set
+//            boolean defaultFileExists = startDialog._defaultScribbleSettings.exists();
 //            if (defaultFileExists) {
-//                parseAndSetScribbleSettings(startDialog.defaultScribbleSettings);
+//                parseAndSetScribbleSettings(startDialog._defaultScribbleSettings);
 //                System.out.println("TAG: using default settings file");
 //            }
 //            //if no file exist use the original default values
@@ -534,7 +522,7 @@ public class startDialog extends JFrame {
     private void createTempSettingsFile() {
 
         if (list1.getSelectedIndices().length == 1) {
-            String settingsFilename = tempScribbleSettings.getPath();
+            String settingsFilename = _tempScribbleSettings.getPath();
 
             //read the values from the sliders and return a list of strings containing the content for the .set file
             List<String> lines = readSliders();
@@ -544,10 +532,27 @@ public class startDialog extends JFrame {
             //TODO: return focus to previous
         }
     }
+private void startServer() {
+//TAG:server
+    try {
+        ServerSocket listener = new ServerSocket(PORT);
+        server = listener.accept();
+        out = new PrintWriter(server.getOutputStream(), true);
+        System.out.println(
+                "Generic Network Server: got connection from " + server.getInetAddress().getHostName() + "\n");
+        listener.close();
+    } catch (IOException ioe) {
+        System.out.println("IOException: " + ioe);
+        ioe.printStackTrace();
+    }
+//TAG:server
+    }
 
     public class ScribbleRunnable implements Runnable {
 
         public void run() {
+
+            startServer();
 
             // code in the other thread, can reference "var" variable
             //create array of strings to pass as argument to MakeScribble with  length 1
@@ -575,11 +580,13 @@ public class startDialog extends JFrame {
                     try {
 //reduce to 1 main only --> call MakeScribble.run instead of MakeScribble.main
                         MakeScribble.run(scribbleArg);
+                        setSliders();
 //                    MakeScribble.main(scribbleArg);
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
                 }
+                _drawingCounter = 0;
             } else {
                 JOptionPane.showMessageDialog(null, "There is nothing selected.");
             }
