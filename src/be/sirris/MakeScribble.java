@@ -114,7 +114,7 @@ public class MakeScribble {
     private static double[] poseTrans = new double[6];
     private static double[] totalDisplacement = new double[poseTrans.length];
     private static double[] poseDrawingOrigin = new double[6];
-    private static double outputMultiplicator = 0.0017*1.3; //measured and calculated based on real drawed picture, corrected after first tests
+    private static double outputMultiplicator = 0.0017*1.27; // (0.87 = toren Pisa, 0.64 = Sirris) measured and calculated based on real drawed picture, corrected after first tests
 
     // initializing the count of drawingposition
     private static double currentColumn = 1;
@@ -286,6 +286,8 @@ public class MakeScribble {
             maxY = scaledLine[1].y * (calculatePaperScale(in));
             }
 
+            // if maxX or maxY exceeds paper size, break and show warning with additional correction value
+
 
 
             if (ROBOT) {
@@ -310,6 +312,26 @@ public class MakeScribble {
                     sendMessage(poseTrans, out);
                     newLine = false;
                 }
+
+                //check whether either maxX or maxX exceeds allowable value, allowable value = paper size - whiteband
+                if (maxX > (paperWidth-2*paperWhiteband)){
+                    System.out.print("TAG: ATTENTION: width of the drawing ");
+                    System.out.print(maxX);
+                    System.out.print(" exceeds effective width of the paper ");
+                    System.out.print(paperWidth-2*paperWhiteband);
+                    System.out.println("!!!");
+
+                    JOptionPane.showMessageDialog(null,"Too wide","TITLE",JOptionPane.WARNING_MESSAGE);
+                }
+                if (maxY > (paperHeight-2*paperWhiteband)){
+                    System.out.print("TAG: ATTENTION: height of the drawing ");
+                    System.out.print(maxY);
+                    System.out.print(" exceeds effective height of the paper ");
+                    System.out.print(paperHeight-2*paperWhiteband);
+                    System.out.println("!!!");
+
+                    JOptionPane.showMessageDialog(null,filename + " too high. Additional correction required of " + ((paperHeight-2*paperWhiteband)/maxY),"WARNING",JOptionPane.WARNING_MESSAGE);
+                }
             }
         }
 
@@ -320,38 +342,23 @@ public class MakeScribble {
         System.out.print(maxY);
         System.out.println(")");
 
-        //check whether either maxX or maxX exceeds allowable value, allowable value = paper size - whiteband
-        if (maxX > (paperWidth-2*paperWhiteband)){
-            System.out.print("ATTENTION: width of the drawing ");
-            System.out.print(maxX);
-            System.out.print(" exceeds effective width of the paper ");
-            System.out.print(paperWidth-2*paperWhiteband);
-            System.out.println("!!!");
+        if(!ROBOT){
+            //check whether either maxX or maxX exceeds allowable value, allowable value = paper size - whiteband
+            if (maxX > (paperWidth-2*paperWhiteband)){
+                JOptionPane.showMessageDialog(null,filename + " too wide. Additional correction required of " + ((paperWidth-2*paperWhiteband)/maxX),"TITLE",JOptionPane.WARNING_MESSAGE);
+            }
+            if (maxY > (paperHeight-2*paperWhiteband)){
+                JOptionPane.showMessageDialog(null,filename + " too high. Additional correction required of " + ((paperHeight-2*paperWhiteband)/maxY),"WARNING",JOptionPane.WARNING_MESSAGE);
+            }
 
         }
-        if (maxY > (paperHeight-2*paperWhiteband)){
-            System.out.print("ATTENTION: height of the drawing ");
-            System.out.print(maxY);
-            System.out.print(" exceeds effective height of the paper ");
-            System.out.print(paperHeight-2*paperWhiteband);
-            System.out.println("!!!");
-
-        }
-
-
 
 
         // after finishing the scribble move ROBOT to referenceheight +50
         if (ROBOT) {
-            // move away from paper
-//            poseTrans[0] = 0; // x value
-//            poseTrans[1] = 0; // y value
-            poseTrans[2] = -referenceHeight - 50;
-//            poseTrans[3] = 0; // a value
-//            poseTrans[4] = 0; // b value
-//            poseTrans[5] = 0; // c value
-            sendMessage(poseTrans, out);
-            // move to 50 above origin, mark newLine as true for next scribble
+            moveFromPaper();
+            writeUR10();
+
             poseTrans[0] = 0; // x value
             poseTrans[1] = 0; // y value
 //            poseTrans[2] = -referenceHeight - 50; // z value, 50 is hardcoded in UR program
@@ -362,6 +369,115 @@ public class MakeScribble {
             newLine = true;
         }
     }
+
+    public static void writeUR10() {
+        //only write after being at referenceheight + 50
+        //move to begin
+        moveAbsXY(60+currentStartPointX, -300-currentStartPointY);
+        //write U
+        writeU();
+        writeR();
+        write1();
+        write0();
+    }
+    public static void writeU() {
+        moveToPaper();
+        moveRelY(-40);
+        moveRelX(20);
+        moveRelY(40);
+        moveFromPaper();
+        moveRelX(10);
+    }
+    public static void writeR() {
+        moveRelY(-40);
+        moveToPaper();
+        moveRelY(40);
+        moveRelX(20);
+        moveRelY(-20);
+        moveRelX(-20);
+        moveRelXY(20,-20);
+        moveFromPaper();
+        moveRelXY(10,40);
+    }
+    public static void write1() {
+        moveRelY(-20);
+        moveToPaper();
+        moveRelXY(20,20);
+        moveRelY(-40);
+        moveFromPaper();
+        moveRelXY(10,40);
+    }
+    public static void write0() {
+        moveToPaper();
+        moveRelY(-40);
+        moveRelX(20);
+        moveRelY(40);
+        moveRelX(-20);
+        moveFromPaper();
+        moveRelX(10);
+    }
+
+    public static void moveToPaper() {
+//  move to paper
+//  poseTrans[0] = 0; // x value
+//  poseTrans[1] = 0; // y value
+        poseTrans[2] = referenceHeight + 50; // z value, 50 is hardcoded in UR program
+//  poseTrans[3] = 0; // a value
+//  poseTrans[4] = 0; // b value
+//  poseTrans[5] = 0; // c value
+        sendMessage(poseTrans, out);
+    }
+
+    public static void moveFromPaper() {
+//  move to paper
+//  poseTrans[0] = 0; // x value
+//  poseTrans[1] = 0; // y value
+        poseTrans[2] = -referenceHeight - 50; // z value, 50 is hardcoded in UR program
+//  poseTrans[3] = 0; // a value
+//  poseTrans[4] = 0; // b value
+//  poseTrans[5] = 0; // c value
+        sendMessage(poseTrans, out);
+    }
+
+    public static void moveRelX(int X) {
+//  poseTrans[0] = 0; // x value
+        poseTrans[1] += -X; // y value
+//  poseTrans[2] = 0; // z value
+//  poseTrans[3] = 0; // a value
+//  poseTrans[4] = 0; // b value
+//  poseTrans[5] = 0; // c value
+        sendMessage(poseTrans, out);
+    }
+
+    public static void moveRelY(int Y) {
+        poseTrans[0] += Y; // y value
+//  poseTrans[1] = ; // x value
+//  poseTrans[2] = 0; // z value
+//  poseTrans[3] = 0; // a value
+//  poseTrans[4] = 0; // b value
+//  poseTrans[5] = 0; // c value
+        sendMessage(poseTrans, out);
+    }
+
+    public static void moveRelXY(double X, double Y) {
+        poseTrans[0] += Y; // x value
+        poseTrans[1] += -X; // y value
+//  poseTrans[2] = 0; // z value
+//  poseTrans[3] = 0; // a value
+//  poseTrans[4] = 0; // b value
+//  poseTrans[5] = 0; // c value
+        sendMessage(poseTrans, out);
+    }
+    public static void moveAbsXY(double X, double Y) {
+        poseTrans[0] = Y; // x value
+        poseTrans[1] = -X; // y value
+//  poseTrans[2] = 0; // z value
+//  poseTrans[3] = 0; // a value
+//  poseTrans[4] = 0; // b value
+//  poseTrans[5] = 0; // c value
+        sendMessage(poseTrans, out);
+    }
+
 
     // Line dimensions are NOT based on pixels Mat in
     public static double calculatePaperScale(Mat in) {
