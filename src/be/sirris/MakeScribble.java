@@ -45,7 +45,7 @@ import java.util.*;
 import java.util.List;
 
 import static be.sirris.startDialog.*;
-import static com.sun.deploy.uitoolkit.ToolkitStore.dispose;
+//import static com.sun.deploy.uitoolkit.ToolkitStore.dispose;
 import static com.sun.java.accessibility.util.AWTEventMonitor.addWindowListener;
 
 /*
@@ -126,7 +126,7 @@ public class MakeScribble {
     private static double maxY = 0;
 
     static {
-        System.loadLibrary("opencv_java300");
+        System.loadLibrary("opencv_java310");
     }
 
     public static void run(String[] args) throws IOException {
@@ -173,7 +173,7 @@ public class MakeScribble {
             public void windowClosing(WindowEvent e) {
 
                 try {
-                    dispose();
+                    frame.dispose();
                 } catch (Exception e1) {
                     e1.printStackTrace();
                 }
