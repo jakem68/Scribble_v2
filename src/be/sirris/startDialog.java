@@ -31,6 +31,7 @@ public class startDialog extends JFrame {
     private static File[] selectedFiles;
     private static String[] selectedFilesNames;
     public static boolean _settingsFileExists;
+    // slider min and max settings
     double maxThreshold = 0.5;
     double minThreshold = 0.02;
     double maxGray_Resolution = 1000;
@@ -286,6 +287,7 @@ public class startDialog extends JFrame {
     private void onTestScribble() throws IOException, InterruptedException {
         //turn of Robot communication
         MakeScribble.ROBOT = false;
+        System.out.println("TAG: I am here 2");
 
         ScribbleRunnable scribbleRunnable = new ScribbleRunnable();
         Thread t = new Thread(scribbleRunnable);

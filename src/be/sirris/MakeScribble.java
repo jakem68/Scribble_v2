@@ -81,15 +81,17 @@ public class MakeScribble {
     //page setup information
     private static final double approachHeight = 15; // mm
     private static double referenceHeight = 6; // mm //set preleminary at 0 for security reasons
-    private static final double refToStartX = 10; // A3=40, testframe=69, distance from reference point to first drawing starting point in X
-    private static final double refToStartY = 10; // A3=-10, testframe=15, distance from reference point to first drawing starting point in Y
+    //refToStartX en refToStartY need preferably to be tested beforehand. Robot should start with wrist 3 at +90°
+    // (= Waypoint_origin in robot program)
+    private static final double refToStartX = 20; // A3=40, distance from reference point to first drawing starting point in X
+    private static final double refToStartY = 10; // A3=10, distance from reference point to first drawing starting point in Y
     private static final int numberColumns = 3; // nr of drawing columns that can be drawn in 1 cycle
     private static final int numberRows = 2; // nr of drawing rows that can be drawn in 1 cycle
     private static final double deltaColumn = 337; // distance from column to column (pitch) 40 + 297
     private static final double deltaRow = 460; // distance from row to row (pitch) 40 + 420
-    private static final int paperWidth = 297; // A3=297mm, testframe=89mm
-    private static final int paperHeight = 420; // A3=420mm, testframe=126
-    private static final int paperWhiteband = 30; // mm
+    private static final int paperWidth = 297; // A3=297mm
+    private static final int paperHeight = 420; // A3=420mm
+    private static final int paperWhiteband = 30; // mm is certainly not too much for most pictures.
     /**
      * This tells the algorithm when to stop: when the average darkness in the
      * image is below this threshold.
@@ -126,7 +128,8 @@ public class MakeScribble {
     private static double maxY = 0;
 
     static {
-        System.loadLibrary("opencv_java310");
+         // System.loadLibrary("libopencv_java320.so");
+        System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
     }
 
     public static void run(String[] args) throws IOException {

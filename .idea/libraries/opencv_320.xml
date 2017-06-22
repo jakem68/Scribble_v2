@@ -1,0 +1,14 @@
+<component name="libraryTable">
+  <library name="opencv-320">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/Downloads/OpenCV/build/bin/opencv-320.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <NATIVE>
+      <root url="file://$USER_HOME$/Downloads/OpenCV/build/lib" />
+    </NATIVE>
+    <SOURCES>
+      <root url="jar://$USER_HOME$/Downloads/OpenCV/build/bin/opencv-320.jar!/" />
+    </SOURCES>
+  </library>
+</component>
